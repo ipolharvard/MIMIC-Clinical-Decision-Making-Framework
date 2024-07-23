@@ -2,7 +2,7 @@
 defaults:
   - _self_
 
-base_mimic: 
-base_models: 
-lab_test_mapping_path: 
-local_logging_dir: 
+base_mimic: cdm-dataset
+base_models: /home/local/PARTNERS/cc2202/Code/text-generation-webui/models
+lab_test_mapping_path: cdm-dataset/lab_test_mapping.pkl
+local_logging_dir: logs
