@@ -47,9 +47,7 @@ def run(args: DictConfig):
         np.random.seed(args.seed)
 
     # Load patient data
-    hadm_info_clean = load_hadm_from_file(
-        f"{args.pathology}_hadm_info_first_diag", base_mimic=args.base_mimic
-    )
+    hadm_info_clean = load_hadm_from_file(f"{args.pathology}_hadm_info_first_diag", base_mimic=args.base_mimic)
 
     tags = {
         "system_tag_start": args.system_tag_start,
@@ -64,6 +62,7 @@ def run(args: DictConfig):
     llm = CustomLLM(
         model_name=args.model_name,
         openai_api_key=args.openai_api_key,
+        openai_api_base=args.openai_api_base,
         tags=tags,
         max_context_length=args.max_context_length,
         exllama=args.exllama,
@@ -80,9 +79,7 @@ def run(args: DictConfig):
         run_name += "_FEWSHOT"
     if args.include_ref_range:
         if args.bin_lab_results:
-            raise ValueError(
-                "Binning and printing reference ranges concurrently is not supported."
-            )
+            raise ValueError("Binning and printing reference ranges concurrently is not supported.")
         run_name += "_REFRANGE"
     if args.bin_lab_results:
         run_name += "_BIN"
@@ -136,9 +133,7 @@ def run(args: DictConfig):
         )
 
         # Run
-        result = agent_executor(
-            {"input": hadm_info_clean[_id]["Patient History"].strip()}
-        )
+        result = agent_executor({"input": hadm_info_clean[_id]["Patient History"].strip()})
         append_to_pickle_file(results_log_path, {_id: result})
 
 

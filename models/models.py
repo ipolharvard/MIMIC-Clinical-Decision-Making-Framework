@@ -35,6 +35,7 @@ class CustomLLM(LLM):
     self_consistency: bool = False
 
     openai_api_key: str = None
+    openai_api_base: str = None
     tags: Dict[str, str] = None
 
     @property
@@ -66,14 +67,18 @@ class CustomLLM(LLM):
 
         if self.model_name == "Human":
             return
-        elif self.openai_api_key:
+        elif self.model_name in ["gpt-3.5-turbo", "gpt-4"]:
             self.tokenizer = tiktoken.encoding_for_model(self.model_name)
             openai.api_key = self.openai_api_key
             return
-        elif (
-            self.model_name
-            == "GeorgiaTechResearchInstitute/galactica-6.7b-evol-instruct-70k"
-        ):
+
+        elif self.model_name == "Meta-Llama-3-70B-Instruct":
+            self.tokenizer = tiktoken.encoding_for_model("gpt-4")
+            openai.api_key = self.openai_api_key
+            openai.api_base = self.openai_api_base
+            return
+
+        elif self.model_name == "GeorgiaTechResearchInstitute/galactica-6.7b-evol-instruct-70k":
             from transformers import AutoTokenizer, AutoModelForCausalLM
 
             self.tokenizer = AutoTokenizer.from_pretrained(
@@ -105,9 +110,7 @@ class CustomLLM(LLM):
                 self.model.load()
                 self.tokenizer = ExLlamaV2Tokenizer(config)
                 cache = ExLlamaV2Cache(self.model)
-                self.generator = ExLlamaV2BaseGenerator(
-                    self.model, cache, self.tokenizer
-                )
+                self.generator = ExLlamaV2BaseGenerator(self.model, cache, self.tokenizer)
                 self.generator.warmup()
 
             else:
@@ -121,9 +124,7 @@ class CustomLLM(LLM):
                     torch_dtype=torch.float16,
                     device_map="auto",
                 )
-                self.model = exllama_set_max_input_length(
-                    self.model, self.max_context_length
-                )
+                self.model = exllama_set_max_input_length(self.model, self.max_context_length)
 
         elif self.model_name == "axiong/PMC_LLaMA_13B":
             from transformers import LlamaTokenizer, LlamaForCausalLM
@@ -157,9 +158,7 @@ class CustomLLM(LLM):
         elif self.model_name.startswith("togethercomputer/RedPajama-INCITE"):
             from transformers import AutoTokenizer, AutoModelForCausalLM
 
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name, pad_token="[PAD]"
-            )
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, pad_token="[PAD]")
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name, torch_dtype=torch.float16, device_map="auto"
             )
@@ -174,9 +173,7 @@ class CustomLLM(LLM):
             else:
                 device_map = "sequential"
 
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name, pad_token="[PAD]"
-            )
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, pad_token="[PAD]")
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 torch_dtype=torch.bfloat16,
@@ -206,9 +203,7 @@ class CustomLLM(LLM):
         truncated_ids = ids[:, :min_size]
 
         # Element-wise comparison and cumulative product to count length of common prefix
-        common_prefix = (
-            (truncated_output_tokens == truncated_ids).cumprod(dim=0).sum().item()
-        )
+        common_prefix = (truncated_output_tokens == truncated_ids).cumprod(dim=0).sum().item()
 
         return output_tokens[:, common_prefix:]
 
@@ -257,9 +252,7 @@ class CustomLLM(LLM):
                     settings = settings.greedy_clone()
                     seed = self.seed
 
-                stop_criteria = create_stop_criteria_exllama(
-                    stop, self.tokenizer.eos_token_id, self.tokenizer
-                )
+                stop_criteria = create_stop_criteria_exllama(stop, self.tokenizer.eos_token_id, self.tokenizer)
 
                 output_tokens, self.probabilities = self.generator.generate_simple(
                     prompt,
@@ -273,9 +266,7 @@ class CustomLLM(LLM):
                 )
 
                 output_tokens = self.remove_input_tokens(output_tokens, ids)
-                output = self.tokenizer.decode(
-                    output_tokens, decode_special_tokens=False
-                )[0]
+                output = self.tokenizer.decode(output_tokens, decode_special_tokens=False)[0]
         else:
             inputs = self.tokenizer(
                 prompt,
@@ -297,9 +288,7 @@ class CustomLLM(LLM):
                 **kwargs,
             )
 
-            stop_criteria = create_stop_criteria(
-                stop, self.tokenizer, self.model.device
-            )
+            stop_criteria = create_stop_criteria(stop, self.tokenizer, self.model.device)
 
             with torch.no_grad():
                 generation_output = self.model.generate(
@@ -313,9 +302,7 @@ class CustomLLM(LLM):
 
             s = generation_output.sequences
             s_no_input = s[:, input_ids.shape[1] :]
-            output = self.tokenizer.batch_decode(s_no_input, skip_special_tokens=True)[
-                0
-            ]
+            output = self.tokenizer.batch_decode(s_no_input, skip_special_tokens=True)[0]
 
         # Remove observations strings from output if generated
         for stop_word in STOP_WORDS + stop:
