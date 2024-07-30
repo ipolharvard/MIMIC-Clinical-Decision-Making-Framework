@@ -1,0 +1,27 @@
+# @package _global_
+defaults:
+  - _self_
+
+openai_api_key: ollama
+openai_api_base: http://localhost:11434/v1/
+
+model_name: ollama-gemma2:27b-instruct-q4_0
+model_name: ollama-gemma2:27b-instruct-q4_0
+max_context_length: 8192
+tokenizer: Xenova/gemma2-tokenizer
+exllama: False
+
+system_tag_start: "<start_of_turn>user\n"
+system_tag_end: "<end_of_turn>\n"
+
+user_tag_start: "<start_of_turn>user\n"
+user_tag_end: "<end_of_turn>\n"
+
+ai_tag_start: "<start_of_turn>model\n"
+ai_tag_end: "<end_of_turn>\n"
+
+stop_words:
+ - "<start_of_turn>"
+ - "<end_of_turn>"
+
+
