@@ -6,7 +6,6 @@ openai_api_key: ollama
 openai_api_base: http://localhost:11434/v1/
 
 model_name: ollama-gemma2:27b-instruct-q4_0
-model_name: ollama-gemma2:27b-instruct-q4_0
 max_context_length: 8192
 tokenizer: Xenova/gemma2-tokenizer
 exllama: False
