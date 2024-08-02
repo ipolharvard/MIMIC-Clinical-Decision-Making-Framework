@@ -1,1 +1,6 @@
 __pycache__
+cdm-dataset/
+cdm-dataset-old/
+logs/
+logs_2/
+outputs/
