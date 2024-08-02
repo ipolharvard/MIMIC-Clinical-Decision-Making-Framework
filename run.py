@@ -61,13 +61,14 @@ def run(args: DictConfig):
     # Load desired model
     llm = CustomLLM(
         model_name=args.model_name,
+        max_context_length=args.max_context_length,
+        exllama=args.exllama,
+        tokenizer=args.tokenizer,
+        seed=args.seed,
+        self_consistency=args.self_consistency,
         openai_api_key=args.openai_api_key,
         openai_api_base=args.openai_api_base,
         tags=tags,
-        max_context_length=args.max_context_length,
-        exllama=args.exllama,
-        seed=args.seed,
-        self_consistency=args.self_consistency,
     )
     llm.load_model(args.base_models)
 

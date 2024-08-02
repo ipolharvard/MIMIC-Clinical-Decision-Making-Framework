@@ -67,28 +67,37 @@ class CustomLLM(LLM):
 
         if self.model_name == "Human":
             return
+
         elif self.model_name in ["gpt-3.5-turbo", "gpt-4"]:
             self.tokenizer = tiktoken.encoding_for_model(self.model_name)
-            openai.api_key = self.openai_api_key
+            return
+
+        elif "ollama" in self.model_name:
+            print("Using ollama")
+            from transformers import AutoTokenizer
+
+            print(f"{self.tokenizer=}")
+            self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer)
+
+            self.model_name = self.model_name.replace("ollama-", "")
+
+            print(f"{self.model_name=}")
+
+            return
+
+        elif self.model_name == "Meta-Llama-3-70B-Instruct-GGUF":
+            from transformers import AutoTokenizer
+
+            print(f"{self.tokenizer=}")
+            self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer)
+
+            print(f"{self.model_name=}")
+
             return
 
         elif self.model_name == "Meta-Llama-3-70B-Instruct":
             self.tokenizer = tiktoken.encoding_for_model("gpt-4")
-            openai.api_key = self.openai_api_key
-            openai.api_base = self.openai_api_base
             return
-
-        elif self.model_name == "GeorgiaTechResearchInstitute/galactica-6.7b-evol-instruct-70k":
-            from transformers import AutoTokenizer, AutoModelForCausalLM
-
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                "GeorgiaTechResearchInstitute/galactica-6.7b-evol-instruct-70k"
-            )
-            self.model = AutoModelForCausalLM.from_pretrained(
-                "GeorgiaTechResearchInstitute/galactica-6.7b-evol-instruct-70k",
-                device_map="auto",
-                torch_dtype=torch.float16,
-            )
 
         elif "GPTQ" in self.model_name:
             if self.exllama:
@@ -114,81 +123,31 @@ class CustomLLM(LLM):
                 self.generator.warmup()
 
             else:
-                from transformers import LlamaTokenizer, LlamaForCausalLM
+                # from transformers import LlamaTokenizer, LlamaForCausalLM
+
+                # base_model = join(base_models, self.model_name)
+
+                # self.tokenizer = LlamaTokenizer.from_pretrained(base_model)
+                # self.model = LlamaForCausalLM.from_pretrained(
+                #     base_model,
+                #     torch_dtype=torch.float16,
+                #     device_map="auto",
+                # )
+                # self.model = exllama_set_max_input_length(self.model, self.max_context_length)
+
+                from transformers import AutoModelForCausalLM, AutoTokenizer
+
+                print("Using AutoTokenizer and AutoModelForCausalLM")
 
                 base_model = join(base_models, self.model_name)
 
-                self.tokenizer = LlamaTokenizer.from_pretrained(base_model)
-                self.model = LlamaForCausalLM.from_pretrained(
+                self.tokenizer = AutoTokenizer.from_pretrained(base_model)
+                self.model = AutoModelForCausalLM.from_pretrained(
                     base_model,
                     torch_dtype=torch.float16,
+                    low_cpu_mem_usage=True,
                     device_map="auto",
                 )
-                self.model = exllama_set_max_input_length(self.model, self.max_context_length)
-
-        elif self.model_name == "axiong/PMC_LLaMA_13B":
-            from transformers import LlamaTokenizer, LlamaForCausalLM
-
-            self.tokenizer = LlamaTokenizer.from_pretrained("axiong/PMC_LLaMA_13B")
-            self.model = LlamaForCausalLM.from_pretrained(
-                "axiong/PMC_LLaMA_13B", device_map="auto", torch_dtype=torch.float16
-            )
-
-        elif self.model_name == "google/flan-t5-xxl":
-            from transformers import T5Tokenizer, T5ForConditionalGeneration
-
-            self.tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-xxl")
-            self.model = T5ForConditionalGeneration.from_pretrained(
-                "google/flan-t5-xxl", device_map="auto", torch_dtype=torch.float16
-            )
-
-        elif self.model_name == "bigscience/T0pp":
-            from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-
-            orig = os.environ.get("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION")
-            os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
-
-            self.tokenizer = AutoTokenizer.from_pretrained("bigscience/T0pp")
-            self.model = AutoModelForSeq2SeqLM.from_pretrained(
-                "bigscience/T0pp", device_map="auto", torch_dtype=torch.float16
-            )
-
-            os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = orig
-
-        elif self.model_name.startswith("togethercomputer/RedPajama-INCITE"):
-            from transformers import AutoTokenizer, AutoModelForCausalLM
-
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, pad_token="[PAD]")
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name, torch_dtype=torch.float16, device_map="auto"
-            )
-
-        elif self.model_name.startswith("tiiuae/falcon"):
-            from transformers import AutoTokenizer, AutoModelForCausalLM
-
-            self.load_in_8bit = "40b" in self.model_name
-            if torch.cuda.device_count() > 1:
-                self.load_in_8bit = False
-                device_map = "balanced_low_0"
-            else:
-                device_map = "sequential"
-
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, pad_token="[PAD]")
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                torch_dtype=torch.bfloat16,
-                trust_remote_code=True,
-                load_in_8bit=self.load_in_8bit,
-                device_map=device_map,
-            )
-
-        else:
-            raise ValueError("Model name not recognized")
-
-        if not self.model_name.startswith("tiiuae/falcon") and not self.exllama:
-            self.model.eval()
-            if torch.__version__ >= "2":
-                self.model = torch.compile(self.model)
 
         self.tokenizer.truncation_side = "left"
 
@@ -221,23 +180,36 @@ class CustomLLM(LLM):
         **kwargs,
     ) -> str:
         self.probabilities = None
+
         if self.model_name == "Human":
             output = input(prompt)
 
         elif self.openai_api_key:
+            from openai import OpenAI
+
             messages = extract_sections(
                 prompt,
                 self.tags,
             )
 
-            response = self.completion_with_backoff(
-                model=self.model_name,
-                messages=messages,
-                stop=STOP_WORDS,
-                temperature=0.0,
-                seed=self.seed,
+            # response = self.completion_with_backoff(
+            #     model=self.model_name,
+            #     messages=messages,
+            #     stop=STOP_WORDS,
+            #     temperature=0.0,
+            #     seed=self.seed,
+            # )
+            client = OpenAI(
+                api_key=self.openai_api_key,
+                base_url=self.openai_api_base,
             )
-            output = response["choices"][0]["message"]["content"]
+            completion = client.chat.completions.create(
+                messages=messages,
+                model=self.model_name,
+            )
+
+            output = completion.choices[0].message.content
+
         elif self.exllama:
             with torch.inference_mode():
                 ids = self.tokenizer.encode(prompt, encode_special_tokens=True)
