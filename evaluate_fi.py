@@ -3,7 +3,7 @@ import glob
 from pprint import pprint
 
 from dataset.utils import load_hadm_from_file
-from evaluate.utils import calculate_average, count_unnecessary
+from evaluate.utils import calculate_average
 from settings import CDM_DATASET_DIR, FIELDS, LOGS_SOTA_DIR, MODELS, PATHOLOGIES
 from utils.logging import read_from_pickle_file
 from run import load_evaluator
@@ -17,22 +17,22 @@ experiment_evals = {}
 experiment_scores = {}
 
 for experiment in [
-    "CDM_VANILLA",
+    "FI_PLI",
 ]:
     print(experiment)
     model_scores = {}
-    model_evals = {}
     model_results = {}
+    model_evals = {}
 
     for model in MODELS:
-        run = f"_ZeroShot_{model}_*_results.pkl"
+        run = f"_{model}_*_FULL_INFO_*results.pkl"
         assert "result" in run
 
         all_evals = {}
         all_results = {}
         for patho in PATHOLOGIES:
             # Load patient data
-            hadm_info_clean = load_hadm_from_file(f"{patho}_hadm_info_clean", base_mimic="cdm-dataset")
+            hadm_info_clean = load_hadm_from_file(f"{patho}_hadm_info_first_diag", base_mimic="cdm-dataset")
             all_evals[patho] = {}
             all_results[patho] = {}
 
@@ -48,11 +48,19 @@ for experiment in [
                 if _id not in results:
                     print(f"Skipping {_id} | {glob.glob(results_log_path)[0]}")
                     continue
-                result = results[_id]
-                evaluator = load_evaluator(patho)  # Reload every time to ensure no state is carried over
+                if "PROBS" in experiment or "SELFCONSISTENCY" in experiment:
+                    result = "Final Diagnosis: " + results[_id]["Diagnosis"]
+                    diag_probs = results[_id]["Probabilities"]
+                    diag_probs = None
+                else:
+                    result = "Final Diagnosis: " + results[_id]
+                    diag_probs = None
+
+                evaluator = load_evaluator(patho)
+
                 eval = evaluator._evaluate_agent_trajectory(
-                    prediction=result["output"],
-                    input=result["input"],
+                    prediction=result,
+                    input="",
                     reference=(
                         hadm_info_clean[_id]["Discharge Diagnosis"],
                         hadm_info_clean[_id]["ICD Diagnosis"],
@@ -60,11 +68,11 @@ for experiment in [
                         hadm_info_clean[_id]["Procedures ICD10"],
                         hadm_info_clean[_id]["Procedures Discharge"],
                     ),
-                    agent_trajectory=result["intermediate_steps"],
+                    agent_trajectory=[],
+                    diagnosis_probabilities=diag_probs,
                 )
                 all_evals[patho][_id] = eval
                 all_results[patho][_id] = result
-
         model_evals[model] = all_evals
         model_results[model] = all_results
         avg_scores = {}
@@ -74,9 +82,6 @@ for experiment in [
             avg_scores[field] = {}
             avg_samples[field] = {}
             for patho in PATHOLOGIES:
-                if field in ["Unnecessary Laboratory Tests", "Unnecessary Imaging"]:
-                    all_evals[patho] = count_unnecessary(all_evals[patho], field)
-
                 avg, n = calculate_average(all_evals[patho], field, patho)
 
                 avg_scores[field][patho] = avg
@@ -84,7 +89,7 @@ for experiment in [
 
         model_scores[model] = avg_scores
 
-        if difficulty == "first_diag":
+        if difficulty == "first_diag" or difficulty == "dr_eval":
             pickle.dump(
                 all_evals,
                 open(
@@ -106,7 +111,8 @@ for experiment in [
                     "wb",
                 ),
             )
-    if difficulty == "first_diag":
+
+    if difficulty == "first_diag" or difficulty == "dr_eval":
         pickle.dump(
             model_evals,
             open(
