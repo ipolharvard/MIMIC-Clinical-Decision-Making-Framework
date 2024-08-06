@@ -1,0 +1,24 @@
+# @package _global_
+defaults:
+  - _self_
+
+openai_api_key: ollama
+openai_api_base: http://localhost:11434/v1/
+
+model_name: ollama-llama2:70b-chat-q4_0-4k
+max_context_length: 4096
+tokenizer: Xenova/llama2-tokenizer
+exllama: False
+
+system_tag_start: "<s>[INST] <<SYS>>\n"
+system_tag_end: "\n<</SYS>>\n\n"
+
+user_tag_start: ""
+user_tag_end: " [/INST] "
+
+ai_tag_start: ""
+ai_tag_end: " </s><s>[INST] "
+
+stop_words:
+ - "[INST]"
+ - "[/INST]"
